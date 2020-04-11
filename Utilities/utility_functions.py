@@ -14,10 +14,11 @@ import requests
 import pandas as pd
 import numpy as np
 import datetime
+import matplotlib.pyplot as plt
 
 idx = pd.IndexSlice
 
-def makeDirectory(needed, here):
+def make_directory(needed, here):
     """
     Makes a directory with names from a list.
     """
@@ -30,7 +31,6 @@ def check_for_folders(folders, here):
     Checks the names of the folder list against the currrent directory. If the result is not
     an empty set then the required names are added to the directory structure.
     """
-
     current_dir = os.listdir()
     curr_dir_set = set(current_dir)
     folder_set = set(folders)
@@ -50,7 +50,7 @@ def make_folders(folders, here):
         place = here +"/"+ folder
         my_folders[folder] = place
     return my_folders
-def getTheData(end_points):
+def get_the_data(end_points):
     """
     Takes an api url and returns a response object
     """
@@ -58,7 +58,7 @@ def getTheData(end_points):
     for pair in end_points:
         data[pair[0]] = requests.get(pair[1])
     return data
-def writeTheData(aDict, here):
+def write_the_data(aDict, here):
     """
     Writes the response objects to local in JSON
     """
@@ -71,14 +71,13 @@ def writeTheData(aDict, here):
             json.dump(aDict[name].json(), outfile)
 
     print(outPut)
-
-def putTheDataToLocal(end_points, here):
+def put_the_data_to_local(end_points, here):
     """
     Gets the data and writes it to a local JSON file
     """
     the_dict = getTheData(end_points)
     writeTheData(the_dict, here)
-def jsonFileGet(this_path):
+def json_file_get(this_path):
     """
     Reads the local JSON in
     """
@@ -117,7 +116,111 @@ def makeListOfBars(aDict, aKey):
 def sortInReverse(the_data, anIndex):
     the_data_sorted = sorted(the_data, key=lambda row: row[anIndex], reverse=True)
     return the_data_sorted
-# def stackBarChartFromSummary(aDict, aKey, anIndex):
-#     the_data = makeListOfBars(aDict, aKey)
-#     the_data_sorted = sortInReverse(the_data, anIndex)
-#     iterateBarchartBlocks(the_data_sorted)
+def percent_of_total_and_frequency(quantDict, freqDict, total, num_samps):
+    new_dict = {}
+    for k,v in quantDict.items():
+        freq = freqDict[k]
+        new_dict.update({k:[v,v/total,freq,freq/num_samps]})
+    return new_dict
+def quantity_frequency(quant, freq, codes):
+    qVsF = []
+    for code in codes:
+        qVsF.append([code, quant[code], freq[code]])
+    return qVsF
+def get_data_by_date_range(a_df, date_range):
+    this_data = a_df[a_df['py_date'].between(date_range[0], date_range[1])]
+    return this_data
+def get_code_totals_from_date_range(a_df):
+    return a_df.groupby(['code_id'])["quantity"].aggregate(np.sum).sort_values(ascending=False)
+def get_code_frequency_from_date_range(data):
+    return a_df.groupby(["code_id"])['code_id'].count().sort_values(ascending=False)
+def get_num_samps(a_df):
+    return a_df[['location_id', 'py_date','quantity']].groupby(['location_id', 'py_date']).sum().count().values[0]
+def get_tuples_from_series(a_df):
+    return list(zip(a_df.index, a_df))
+def get_the_rest(a_list, total_quant):
+    some_number = 0
+    for x in a_list:
+        some_number += x[1]
+    return total_quant - some_number
+def make_blocks(a_df, percent, end_start, total_quant, code_dict, top_ten=False):
+    code_totals = get_code_totals_from_date_range(a_df)
+    code_totals_tuple = get_tuples_from_series(code_totals)
+    print(code_totals_tuple)
+    code_greater_than = [
+        (x[0],x[1],code_dict[x[0]][1])
+        for i,x in enumerate(code_totals_tuple)
+        if x[1] >= percent
+    ]
+    the_rest = get_the_rest(code_greater_than, total_quant)
+    code_greater_than.append(("Other", the_rest,"*All other objects"))
+    return code_greater_than
+def start_end_date(start, end, date_format):
+    return ((datetime.datetime.strptime(start, date_format), datetime.datetime.strptime(end, date_format)))
+def a_color_map(color_map_name='PuBuGn', look_up_table_entries=100):
+    # provide a color map https://matplotlib.org/3.1.0/tutorials/colors/colormaps.html
+    return plt.cm.get_cmap(color_map_name,look_up_table_entries)
+def title_styles(fs=12, ff='sans-serif', fw='normal',va='baseline', ha='center'):
+    """For sup title use the following values:
+
+    ff='sans-serif', fw='roman', fs=14, ha='left', va='baseline'
+    """
+    return ({
+        'fontsize': fs,
+        'fontfamily':ff,
+        'fontweight': fw,
+        'verticalalignment': va,
+        'horizontalalignment': ha,
+    })
+def title_position(x=0, pad=15):
+    """For sup title use the following values:
+
+    x=0.13, pad=0
+    """
+    return({
+        'x':x,
+        'pad':pad,
+    })
+def title_content_color(content="A title", color="black"):
+    return {'label':content, 'color':color}
+def legend_style(t_fs=14, fs=11, b_box_a=(1,1.02), loc='upper left', title=None):
+    return({
+        "title_fontsize":t_fs,
+        "fontsize":fs,
+        "bbox_to_anchor":b_box_a,
+        "loc":loc,
+        "title":title
+    })
+def legend_t_align(title="A legend title", align="left"):
+    return {'title':title, 'align':align}
+def axis_label_props(label="An axis label", ff='sans-serif', pad=15, color='black', sz=12, ha='left', x=0):
+    return({
+        'fontfamily':ff,
+        'lablepad':pad,
+        'color':color,
+        'size':sz,
+        'label':label,
+        'ha':ha,
+        'x':x
+    })
+def adjust_subplot_params(left=0.125, right=0.9, bottom=0.1,
+                            top=0.87, wspace=0.2, hspace=0.2):
+    return ({"top":top, "left":left, "right":right, "bottom":bottom,
+            "wspace":wspace, "hspace":hspace})
+def file_params(folder, file_name, file_suffix):
+    return {'folder':folder, 'file_name':file_name, 'file_suffix':file_suffix}
+def save_the_figure(folder='a/file/path/', file_name='a_file', file_suffix='.svg'):
+    save_me = '{}/{}{}'.format(folder, file_name, file_suffix)
+    plt.savefig(save_me, bbox_inches="tight")
+def make_stacked_blocks(the_data, ax, color):
+    the_bottom = 0
+    for i,block in enumerate(the_data):
+            if i == 0:
+                ax.bar(1, block[1], color=next(color), edgecolor="white", alpha=0.9,
+                        label="{}: {:,}".format(block[2],block[1]))
+                the_bottom += block[1]
+            else:
+                ax.bar(1, block[1], color=next(color), edgecolor="white",alpha=0.9,
+                       bottom=the_bottom,
+                       label="{}: {:,}".format(block[2],block[1]))
+                the_bottom += block[1]
